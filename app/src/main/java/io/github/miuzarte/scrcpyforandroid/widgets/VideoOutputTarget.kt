@@ -1,5 +1,8 @@
 package io.github.miuzarte.scrcpyforandroid.widgets
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,5 +18,20 @@ object VideoOutputTargetState {
 
     fun set(target: VideoOutputTarget) {
         _current.value = target
+    }
+}
+
+/** Number of fullscreen video screens currently composed. Snapshot state, so reads in composition recompose and reads in callbacks see the latest value. */
+object FullscreenVideoState {
+    var activeCount by mutableIntStateOf(0)
+        private set
+    val active: Boolean get() = activeCount > 0
+
+    fun enter() {
+        activeCount++
+    }
+
+    fun exit() {
+        activeCount--
     }
 }

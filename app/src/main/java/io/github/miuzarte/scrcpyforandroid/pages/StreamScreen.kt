@@ -15,6 +15,7 @@ import io.github.miuzarte.scrcpyforandroid.services.LocalSnackbarController
 import io.github.miuzarte.scrcpyforandroid.services.SnackbarController
 import io.github.miuzarte.scrcpyforandroid.storage.Storage
 import io.github.miuzarte.scrcpyforandroid.ui.createThemeController
+import io.github.miuzarte.scrcpyforandroid.widgets.FullscreenVideoState
 import io.github.miuzarte.scrcpyforandroid.widgets.VideoOutputTarget
 import io.github.miuzarte.scrcpyforandroid.widgets.VideoOutputTargetState
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
@@ -126,6 +127,11 @@ fun FullscreenControlRoute(
         if (currentSession == null) {
             onBack()
         }
+    }
+
+    DisposableEffect(Unit) {
+        FullscreenVideoState.enter()
+        onDispose { FullscreenVideoState.exit() }
     }
 
     DisposableEffect(activity) {
