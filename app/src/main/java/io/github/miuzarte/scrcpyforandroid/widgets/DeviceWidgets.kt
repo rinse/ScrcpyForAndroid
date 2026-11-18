@@ -374,14 +374,17 @@ internal fun PreviewCard(
                         .align(Alignment.Center)
                         .then(fittedModifier),
                 ) {
-                    ScrcpyVideoSurface(
-                        modifier = Modifier.fillMaxSize(),
-                        session = sessionInfo,
-                        imeRequestToken = imeRequestToken,
-                        onImeCommitText = onImeCommitText,
-                        onImeDeleteSurroundingText = onImeDeleteSurroundingText,
-                        onImeKeyEvent = onImeKeyEvent,
-                    )
+                    if (!FullscreenVideoState.active) {
+                        ScrcpyVideoSurface(
+                            modifier = Modifier.fillMaxSize(),
+                            session = sessionInfo,
+                            imeRequestToken = imeRequestToken,
+                            onImeCommitText = onImeCommitText,
+                            onImeDeleteSurroundingText = onImeDeleteSurroundingText,
+                            onImeKeyEvent = onImeKeyEvent,
+                            allowAttach = { !FullscreenVideoState.active },
+                        )
+                    }
                 }
             }
 
@@ -941,6 +944,9 @@ private fun PairingDialog(
  *   `surfaceDestroyed` and `DisposableEffect.onDispose` to guarantee
  *   cleanup even if the composable leaves composition.
  *
+ * - `allowAttach` lets the caller veto attaching (e.g. while another surface owns the
+ *   output); detach paths are never gated.
+ *
  * Reliability notes:
  * - Always release old surfaces before assigning new ones to avoid native renderer
  *   referencing stale surfaces.
@@ -956,6 +962,7 @@ fun ScrcpyVideoSurface(
     gamepadCaptureEnabled: Boolean = false,
     onGamepadKeyEvent: ((KeyEvent) -> Boolean)? = null,
     onGamepadMotionEvent: ((MotionEvent) -> Boolean)? = null,
+    allowAttach: () -> Boolean = { true },
 ) {
 
     val taskScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
@@ -967,10 +974,12 @@ fun ScrcpyVideoSurface(
     var currentSurfaceView by remember { mutableStateOf<ScrcpyInputSurfaceView?>(null) }
 
     val latestSession by rememberUpdatedState(session)
+    val latestAllowAttach by rememberUpdatedState(allowAttach)
+    val attachAllowed = allowAttach()
 
-    LaunchedEffect(session, currentSurface) {
+    LaunchedEffect(session, currentSurface, attachAllowed) {
         val surface = currentSurface ?: return@LaunchedEffect
-        if (session != null && surface.isValid) {
+        if (attachAllowed && session != null && surface.isValid) {
             NativeCoreFacade.attachVideoSurface(surface)
         }
     }
@@ -999,6 +1008,7 @@ fun ScrcpyVideoSurface(
         val surface = currentSurface
         if (
             lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) &&
+            latestAllowAttach() &&
             session != null &&
             surface != null &&
             surface.isValid
@@ -1010,7 +1020,7 @@ fun ScrcpyVideoSurface(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
                 val surface = currentSurface
-                if (session != null && surface != null && surface.isValid) {
+                if (latestAllowAttach() && session != null && surface != null && surface.isValid) {
                     scope.launch {
                         NativeCoreFacade.attachVideoSurface(surface)
                     }
@@ -1082,7 +1092,7 @@ fun ScrcpyVideoSurface(
                             if (!newSurface.isValid) return
                             currentSurface = newSurface
                             // Register immediately when surface becomes available
-                            if (latestSession != null) {
+                            if (latestSession != null && latestAllowAttach()) {
                                 scope.launch {
                                     NativeCoreFacade.attachVideoSurface(newSurface)
                                 }
@@ -1099,7 +1109,7 @@ fun ScrcpyVideoSurface(
                             if (!holder.surface.isValid) return
                             val surface = holder.surface
                             currentSurface = surface
-                            if (latestSession != null) {
+                            if (latestSession != null && latestAllowAttach()) {
                                 scope.launch {
                                     NativeCoreFacade.attachVideoSurface(surface)
                                 }
