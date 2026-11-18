@@ -56,7 +56,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "io.github.miuzarte.scrcpyforandroid"
+        applicationId = "io.github.miuzarte.scrcpyforandroid.fork"
         minSdk = 26
         targetSdk = 37
         versionCode = 54
